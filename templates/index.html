@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en" x-data="statusApp()">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Website Perguruan Tinggi</title>
+    <link
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        background-color: #f0f2f5;
+        padding-top: 80px; /* Add padding to prevent content from being hidden under the fixed header */
+      }
+      header {
+        background-color: #007bff;
+        color: white;
+        padding: 20px 0;
+        position: fixed;
+        top: 0;
+        width: 100%;
+        z-index: 1000;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      header h1 {
+        margin: 0;
+        text-align: center;
+        font-size: 1.5em;
+      }
+      .card {
+        margin-bottom: 20px;
+      }
+      .card-body {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .status-up {
+        color: green;
+        font-weight: bold;
+      }
+      .status-down {
+        color: red;
+        font-weight: bold;
+      }
+      .countdown {
+        font-size: 0.9em;
+      }
+    </style>
+    <script
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.10.3/dist/cdn.min.js"
+      defer
+    ></script>
+  </head>
+  <body>
+    <header>
+      <div class="container">
+        <h1>Monitor Website Perguruan Tinggi</h1>
+      </div>
+    </header>
+    <div class="container">
+      <div class="row">
+        <template x-for="url in sortedUrls" :key="url.url">
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-body">
+                <div>
+                  <h5 class="card-title">
+                    <a
+                      :href="url.url"
+                      x-text="url.name"
+                      target="_blank"
+                      :title="url.url"
+                    ></a>
+                  </h5>
+                  <p class="card-text" x-text="url.last_check_up"></p>
+                  <p
+                    class="card-text countdown"
+                    x-text="url.countdown + ' detik'"
+                  ></p>
+                </div>
+                <div>
+                  <span
+                    :class="{'status-up': url.status === 'Up', 'status-down': url.status === 'Down'}"
+                    x-text="url.status"
+                  ></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+    <script>
+      function statusApp() {
+        return {
+          urls: [],
+          async fetchStatus() {
+            try {
+              const response = await fetch("./status");
+              const data = await response.json();
+              this.urls = data.urls.map((url) => ({
+                ...url,
+                countdown: url.status === "Up" ? 60 : 30,
+              }));
+            } catch (error) {
+              console.error("Error fetching status:", error);
+            }
+          },
+          get sortedUrls() {
+            return this.urls.sort((a, b) =>
+              a.status === "Down" && b.status === "Up" ? -1 : 1
+            );
+          },
+          startCountdown() {
+            setInterval(() => {
+              this.urls.forEach((url) => {
+                if (url.countdown > 0) {
+                  url.countdown--;
+                } else {
+                  this.updateSingleStatus(url.url);
+                }
+              });
+            }, 1000);
+          },
+          async updateSingleStatus(url) {
+            try {
+              const response = await fetch("./status");
+              const data = await response.json();
+              const updatedUrl = data.urls.find((u) => u.url === url);
+              const urlIndex = this.urls.findIndex((u) => u.url === url);
+              if (urlIndex !== -1) {
+                this.urls[urlIndex] = {
+                  ...updatedUrl,
+                  countdown: updatedUrl.status === "Up" ? 60 : 30,
+                };
+              }
+            } catch (error) {
+              console.error("Error fetching single status:", error);
+            }
+          },
+          init() {
+            this.fetchStatus();
+            this.startCountdown();
+          },
+        };
+      }
+    </script>
+  </body>
+</html>
